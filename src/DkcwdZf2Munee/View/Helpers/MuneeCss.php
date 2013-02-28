@@ -1,4 +1,4 @@
-<?php 
+<?php
 /**
  * @link http://github.com/dkcwd/dkcwd-zf2-munee for the canonical source repository
  * @author Dave Clark dave@dkcwd.com.au
@@ -8,43 +8,78 @@
 
 namespace DkcwdZf2Munee\View\Helpers;
 
-use Zend\View\Helper\AbstractHelper;
+use Zend\View\Helper\HeadLink;
 
-class MuneeCss extends AbstractHelper
+class MuneeCss extends HeadLink
 {
     /**
-     * View helper to format strings for making requests to the Munee Controller via the
-     * custom route provided in this module.
+     * Render placeholder as string
      *
-     * @param array $files An array containing strings representing paths to css files.
-     * @param bool $minify [optional] a switch to disable js file minification
-     * @param bool $returnElementWrapper [optional] a switch to prevent wrapping the path
-     * returned within an element wrapper
-     * @return string|null A formatted string or null if invalid parameters are supplied
+     * @param string|int $indent
+     * @param boolean $minify
+     * @return string
      */
-    public function __invoke($files, $minify = true, $returnElementWrapper = true)
+    public function toString($indent = false, $minify = false)
     {
-        if (! is_array($files)) {
-            return null;
-        }
+        $minify = (! $minify) ? 'false' : 'true';
+        $indent = (null !== $indent)
+            ? $this->getWhitespace($indent)
+            : $this->getIndent();
+        $this->getContainer()->ksort();
+        
+        $return = array();
+        $nonSheets = array();
+        $stylesheets = array();
+        
+        try {
+            foreach ($this as $item) {
+                // Null check required due to ZF2 headLink bug (ref to come soon)
+                if (isset($item->type) && 'text/css' == $item->type &&
+                    (false === $item->conditionalStylesheet || null === $item->conditionalStylesheet)) {
+                    $stylesheets[$item->media][] = $item->href;
+                } else {
+                    // Conditional stylesheet so minify
+                    if (isset($item->type) && 'text/css' == $item->type) {
+                        $item->href = $this->getMuneeHref($item->href, $minify);
+                    }
     
-        foreach ($files as $k => $item) {
-            if (! is_string($item)) {
-                unset($files[$k]);
+                    $nonSheets[] = $this->itemToString($item);
+                }
             }
+            
+            // Compile stylesheets
+            if (! empty($stylesheets)) {
+                foreach ($stylesheets as $media => $sheets) {
+                    $item = new \stdClass();
+                    $item->rel = 'stylesheet';
+                    $item->type = 'text/css';
+                    $item->href = $this->getMuneeHref($sheets, $minify);
+                    $item->media = $media;
+                    
+                    $return[] = $this->itemToString($item);
+                }
+            }
+        } catch (Exception\InvalidArgumentException $e) {
+            trigger_error($e->getMessage(), E_USER_WARNING);
+            return '';
         }
+
+        return $indent . implode($this->escape($this->getSeparator()) . $indent, array_merge($return, $nonSheets));
+    }
     
-        if (empty($files)) {
-            return null;
+    /**
+     * Builds the Mun.ee href content for inclusion in CSS content
+     *
+     * @param array|string $files
+     * @param string $minify
+     * @return string
+     */
+    protected function getMuneeHref($files, $minify)
+    {
+        if (is_string($files)) {
+            $files = array($files);
         }
-    
-        $minifyValue = ($minify === false) ? 'false' : 'true';
-        $src = sprintf('/munee?files=%s&minify=%s', implode(',', $files), $minifyValue);
-    
-        if ((boolean) $returnElementWrapper) {
-            return sprintf('<link rel="stylesheet" href="%s">', $src) . PHP_EOL;
-        } else {
-            return $src . PHP_EOL;
-        }
+
+        return sprintf('/munee?files=%s&minify=%s', implode(',', $files), $minify);
     }
 }
