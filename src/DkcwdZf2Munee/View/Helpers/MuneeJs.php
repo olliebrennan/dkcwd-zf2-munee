@@ -74,10 +74,26 @@ class MuneeJs extends HeadScript
         if (! empty($scripts)) {
             $item = new \stdClass();
             $item->type = 'text/javascript';
-            $item->attributes = array('src' => implode(',', $scripts));
+            $item->attributes = array('src' => $this->getMuneeHref($scripts, $minify));
             $return .= $this->itemToString($item, $indent, $escapeStart, $escapeEnd);
         }
         
         return $return;
+    }
+    
+    /**
+     * Builds the Mun.ee href content for inclusion in CSS content
+     *
+     * @param array|string $files
+     * @param string $minify
+     * @return string
+     */
+    protected function getMuneeHref($files, $minify)
+    {
+        if (is_string($files)) {
+            $files = array($files);
+        }
+
+        return sprintf('/munee?files=%s&minify=%s', implode(',', $files), $minify);
     }
 }
