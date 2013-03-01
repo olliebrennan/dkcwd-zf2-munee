@@ -1,4 +1,4 @@
-<?php 
+<?php
 /**
  * @link http://github.com/dkcwd/dkcwd-zf2-munee for the canonical source repository
  * @author Dave Clark dave@dkcwd.com.au
@@ -8,43 +8,76 @@
 
 namespace DkcwdZf2Munee\View\Helpers;
 
-use Zend\View\Helper\AbstractHelper;
+use Zend\Uri\Http;
 
-class MuneeJs extends AbstractHelper
+use Zend\View\Helper\HeadScript;
+
+class MuneeJs extends HeadScript
 {
     /**
-     * View helper to format strings for making requests to the Munee Controller via the
-     * custom route provided in this module.
+     * Render placeholder as string
      *
-     * @param array $files An array containing strings representing paths to js files.
-     * @param bool $minify [optional] a switch to disable js file minification
-     * @param bool $returnElementWrapper [optional] a switch to prevent wrapping the path
-     * returned within an element wrapper
-     * @return string|null A formatted string or null if invalid parameters are supplied
+     * @param string|int $indent
+     * @param boolean $minify
+     * @return string
      */
-    public function __invoke($files, $minify = true, $returnElementWrapper = true)
+    public function toString($indent = false, $minify = false)
     {
-        if (! is_array($files)) {
-            return null;
+        $minify = (! $minify) ? 'false' : 'true';
+        $indent = (null !== $indent)
+            ? $this->getWhitespace($indent)
+            : $this->getIndent();
+        $this->getContainer()->ksort();
+        
+        if ($this->view) {
+            $useCdata = $this->view->plugin('doctype')->isXhtml() ? true : false;
+        } else {
+            $useCdata = $this->useCdata ? true : false;
         }
+        
+        $escapeStart = ($useCdata) ? '//<![CDATA[' : '//<!--';
+        $escapeEnd   = ($useCdata) ? '//]]>' : '//-->';
+        
+        $scripts = array();
+        $nonGroupedScripts = array();
+        $inlineScript = array();
+        $uriValidator = new Http();
     
-        foreach ($files as $k => $item) {
-            if (! is_string($item)) {
-                unset($files[$k]);
+        // First step is to categories each item in scripts, inline and external
+        foreach ($this as $item) {
+            // Not a javascript file so skip
+            if ('text/javascript' != $item->type) {
+                continue;
+            }
+            
+            if (! empty($item->attributes) && ! empty($item->attributes['src'])) {
+                if ($uriValidator->isValid($item->attributes['src']) || ! empty($item->attributes['conditional'])) {
+                    $nonGroupedScripts[] = $item;
+                } else {
+                    $scripts[] = $item->attributes['src'];
+                }
+            } elseif (! empty($item->source)) {
+                $inlineScript[] = $item;
             }
         }
-    
-        if (empty($files)) {
-            return null;
+        
+        // Put all scripts together and send back
+        $return = '';
+        foreach ($nonGroupedScripts as $script) {
+            $return .= $this->itemToString($script, $indent, $escapeStart, $escapeEnd);
         }
-    
-        $minifyValue = ($minify === false) ? 'false' : 'true';
-        $src = sprintf('/munee?files=%s&minify=%s', implode(',', $files), $minifyValue);
-    
-        if ((boolean) $returnElementWrapper) {
-            return sprintf('<script src="%s"></script>', $src) . PHP_EOL;
-        } else {
-            return $src . PHP_EOL;
+        
+        foreach ($inlineScript as $script) {
+            $return .= $this->itemToString($script, $indent, $escapeStart, $escapeEnd);
         }
+        
+        if (! empty($scripts)) {
+            $item = new \stdClass();
+            $item->type = 'text/javascript';
+            $item->attributes = array('src' => implode(',', $scripts));
+            $return .= $this->itemToString($item, $indent, $escapeStart, $escapeEnd);
+        }
+        
+        return $return;
     }
 }
