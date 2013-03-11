@@ -1,14 +1,19 @@
 {
-    "name": "dkcwd/dkcwd-zf2-munee",
+    "name": "olliebrennan/dkcwd-zf2-munee",
     "description": "Zend Framework 2 module leveraging 'munee' an asset optimisation library developed by Cody Lundquist.  You can find munee at http://github.com/meenie/munee",
     "keywords": ["php","zf2","module","less","optimizing","css","munee","javascript","lessphp"],
-    "homepage": "http://github.com/dkcwd/dkcwd-zf2-munee",
+    "homepage": "https://github.com/olliebrennan/dkcwd-zf2-munee",
     "license": "MIT",
     "authors": [
         {
             "name": "Dave Clark",
             "email": "dave@dkcwd.com.au",
             "homepage": "https://dkcwd.com.au"
+        },
+        {
+            "name": "Oliver Brennan",
+            "email": "packages@epicarena.com",
+            "homepage": "https://www.thelaughingsquid.com.au"
         }
     ],
     "autoload": {
